@@ -1,0 +1,103 @@
+from datetime import datetime
+from urllib.request import urlopen, Request
+from bs4 import BeautifulSoup as Bs
+
+dt = datetime.now().date()
+# lists
+calltimes = []
+companies = []
+tickers = []
+dayslist = []
+# Static
+YEAR = dt.strftime("%Y")
+FMONTH = int(dt.strftime("%m"))
+FSTART = int(dt.strftime("%d")) - int(dt.strftime("%w"))
+FEND = int(dt.strftime("%d")) + (6 - int(dt.strftime("%w")))
+
+
+# check if the day is over the end of the month and if it is change the end to the right day
+def timecalc(months, ends):
+    if months == "01" or months == "03" or months == "05" or months == "07" or months == "08" or months == "10" or months == "12":
+        endday = 31
+    elif months == "02":
+        endday = 28
+    else:
+        endday = 30
+    if ends > endday:
+        diff = ends - endday
+        return diff
+    else:
+        return ends
+
+
+# check if end is
+def addzero(x):
+    if x < 10:
+        return "0" + str(x)
+    else:
+        return str(x)
+
+
+# days is the amount of days it has extracted
+days = 0
+while days < 14:
+    # set changing variables as the static ones before they are messed with
+    day = FSTART + days
+    start = FSTART
+    end = FEND
+    month = FMONTH
+    # change to next week's page after the first week
+    if days >= 7:
+        start = start + 7
+        end = end + 7
+    # end will return the same if it is not over the months last day so if it changes the month and day is fixed
+    if timecalc(FMONTH, end) != end:
+        end = timecalc(FMONTH, end)
+        month = FMONTH + 1
+    # makes everything into string type and adds a 0 in front of numbers under 10 as the url requires
+    day = addzero(day)
+    start = addzero(start)
+    end = addzero(end)
+    month = addzero(month)
+    # adds to the day list for later charts
+    dayslist.append(day)
+    # this loads the websites parses and the html for reading
+    url = f"https://finance.yahoo.com/calendar/earnings?from={YEAR}-{month}-{start}&to={YEAR}-{month}-{end}&day={YEAR}-{month}-{day} "
+    req = Request(url=url, headers={'user-agent': 'my-app'})
+    response = urlopen(req)
+    html = Bs(response, features='html.parser')
+    caltable = html.find(id='cal-res-table')
+    # if there is nothing for that day it throws an error, so I used try and except so that if nothing is that day it
+    # will say so and not stop the program.
+    try:
+        # finds all tr rows first one doesnt have anything all rest have tickers
+        tickerrows = caltable.findAll('tr')
+
+        # finds all companies
+        companyrows = caltable.find_all('td', attrs={'colspan': '',
+                                                     'class': ['Va(m)', 'Ta(start)', 'Pend(10px)', 'Pstart(6px)',
+                                                               'Fz(s)'],
+                                                     'aria-label': 'Company'})
+        # finds call times
+        calltimerows = caltable.find_all('td', attrs={'colspan': '',
+                                                      'class': ['Va(m)', 'Ta(end)', 'Pstart(15px)', 'W(20%)',
+                                                                'Fz(s)'],
+                                                      'aria-label': 'Earnings Call Time'})
+        # adds everything to respective lists
+        for index, row in enumerate(calltimerows):
+            calltime = row.text
+            calltimes.append(day + "-" + calltime)
+        for index, row in enumerate(companyrows):
+            company = row.text
+            companies.append(company)
+        for index, row in enumerate(tickerrows):
+            # needs to be in try because first row has nothing but rest has the tickers
+            try:
+                ticker = row.a.text
+                tickers.append(ticker)
+            except AttributeError:
+                pass
+    except AttributeError:
+        pass
+
+    days = days + 1
