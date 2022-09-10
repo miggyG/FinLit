@@ -1,0 +1,69 @@
+from urllib.request import urlopen, Request
+import matplotlib.pyplot as plt
+import pandas as pd
+from bs4 import BeautifulSoup
+from nltk.sentiment.vader import SentimentIntensityAnalyzer
+"""
+
+OKAY SO BASICALLY EVERYTHING IS UP AND RUNNING AND THIS CAN GIVE YOU BASIC UNDERSTANDING
+MAYBE TRY AND BE ABLE TO INPUT TICKERS FROM REDDIT OR TRY AND GET THE BODY
+OF THE NEWS ARTICLES BECAUSE THIS JUST JUDGES THE TITLES YOU CAN DO MORE THAN THAT
+IF FINVIZ TOO HARD FOR THAT MAYBE MERGE WITH YOUR OTHER NEWS API
+
+"""
+finviz_url = 'https://finviz.com/quote.ashx?t='
+tickers = ["RBLX"]
+news_tables = {}
+for ticker in tickers:
+    url = finviz_url + ticker
+
+    req = Request(url=url, headers={'user-agent': 'my-app'})
+    try:
+        response = urlopen(req)
+
+        html = BeautifulSoup(response, features='html.parser')
+        news_table = html.find(id='news-table')
+        news_tables[ticker] = news_table
+    except:
+        pass
+
+parsed_data = []
+
+for ticker, news_table in news_tables.items():
+    try:
+        for row in news_table.findAll('tr'):
+
+            try:
+                title = row.a.text
+                date_data = row.td.text.split(' ')
+
+                if len(date_data) == 1:
+                    time = date_data[0]
+                    parsed_data.append([ticker, time, title])
+                else:
+                    date = date_data[0]
+                    time = date_data[1]
+                    parsed_data.append([ticker, date, time, title])
+
+            except:
+                pass
+    except:
+        pass
+
+
+df = pd.DataFrame(parsed_data, columns=['ticker', 'date', 'time', 'title'])
+
+vader = SentimentIntensityAnalyzer()
+print(vader.polarity_scores(title))
+f = lambda title: vader.polarity_scores(title)['compound']
+df['compound'] = df['title'].apply(f)
+df['date'] = pd.to_datetime(df.date).dt.date
+# df = df.drop(df[df.date == pd.to_datetime(df.date).dt.date].index)
+
+# plt.figure(figsize=(10, 8))
+mean_df = df.groupby(['ticker', 'date'], dropna=True).mean().unstack()
+mean_df = mean_df.xs('compound', axis="columns")
+mean_df.plot(kind='bar')
+# print(mean_df)
+print(df)
+plt.show()
