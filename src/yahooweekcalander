@@ -1,6 +1,8 @@
 from datetime import datetime
 from urllib.request import urlopen, Request
 from bs4 import BeautifulSoup as Bs
+import numpy as np
+import yfinance as yf
 
 dt = datetime.now().date()
 # lists
@@ -8,11 +10,14 @@ calltimes = []
 companies = []
 tickers = []
 dayslist = []
+prices = []
+
 # Static
 YEAR = dt.strftime("%Y")
 FMONTH = int(dt.strftime("%m"))
 FSTART = int(dt.strftime("%d")) - int(dt.strftime("%w"))
 FEND = int(dt.strftime("%d")) + (6 - int(dt.strftime("%w")))
+TODAY = int(dt.strftime("%d"))
 
 
 # check if the day is over the end of the month and if it is change the end to the right day
@@ -38,16 +43,16 @@ def addzero(x):
         return str(x)
 
 
-def main(*args):
-    returntype = args
+def maincal(rtype):
     # days is the amount of days it has extracted
     days = 0
-    while days < 14:
+    while days < 7:
         # set changing variables as the static ones before they are messed with
-        day = FSTART + days
+        day = TODAY + days
         start = FSTART
         end = FEND
         month = FMONTH
+        month2 = FMONTH
         # change to next week's page after the first week
         if days >= 7:
             start = start + 7
@@ -55,16 +60,17 @@ def main(*args):
         # end will return the same if it is not over the months last day so if it changes the month and day is fixed
         if timecalc(FMONTH, end) != end:
             end = timecalc(FMONTH, end)
-            month = FMONTH + 1
+            month2 = FMONTH + 1
         # makes everything into string type and adds a 0 in front of numbers under 10 as the url requires
         day = addzero(day)
         start = addzero(start)
         end = addzero(end)
         month = addzero(month)
+        month2 = addzero(month2)
         # adds to the day list for later charts
-        dayslist.append(day)
+        dayslist.append(YEAR + "/" + month + "/" + day)
         # this loads the websites parses and the html for reading
-        urlvar = f"from={YEAR}-{month}-{start}&to={YEAR}-{month}-{end}&day={YEAR}-{month}-{day}"
+        urlvar = f"from={YEAR}-{month}-{start}&to={YEAR}-{month2}-{end}&day={YEAR}-{month}-{day}"
         url = "https://finance.yahoo.com/calendar/earnings?" + urlvar
         req = Request(url=url, headers={'user-agent': 'my-app'})
         response = urlopen(req)
@@ -74,6 +80,7 @@ def main(*args):
         # will say so and not stop the program.
         try:
             # finds all tr rows first one doesnt have anything all rest have tickers
+
             tickerrows = caltable.findAll('tr')
 
             # finds all companies
@@ -103,12 +110,27 @@ def main(*args):
         except AttributeError:
             pass
         days = days + 1
-    if returntype == 1 or "ticker" or "tickers":
+
+    for ticker in tickers:
+        tick = yf.Ticker(ticker)
+        pinfo = tick.info
+        price = pinfo["previousClose"]
+        cap = pinfo["marketCap"]
+        if price < 3.0 or cap < 25000000:
+            i = tickers.index(ticker)
+            del tickers[i]
+            del companies[i]
+            del calltimes[i]
+        else:
+            prices.append(str(yf.ticker))
+
+    # everythingarray = np.array([tickers, companies, calltimes, prices])
+
+    if rtype == 1:
         return tickers
-    elif returntype == 2 or "company" or "companies":
-        return tickers
-    elif returntype == 3 or "calltime" or "calltimes":
-        return tickers
+    elif rtype == 2:
+        return companies
+    elif rtype == 3:
+        return calltimes
     else:
         return tickers
-  
