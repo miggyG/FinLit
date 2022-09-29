@@ -1,8 +1,8 @@
 # main
 import numpy as np
 import pandas as pd
-from caltick import maincal
-from gettingnews import mainsia
+from yahooweekcalander import maincal
+from getnews import mainsia
 import yfinance
 # tickerslist = maincal(1)
 
